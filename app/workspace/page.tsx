@@ -22,16 +22,20 @@ export default function WorkspacePage() {
   const router = useRouter();
   const initialPrompt = typeof window !== 'undefined' ? localStorage.getItem('fivecoder_first_prompt') || '' : '';
 
+  const initialChat: ChatMessage[] = [
+    { role: 'agent', text: 'Workspace iniciado. Peça alterações e melhorias no script.', at: new Date().toISOString() },
+  ];
+  if (initialPrompt) {
+    initialChat.push({ role: 'user', text: initialPrompt, at: new Date().toISOString() });
+  }
+
   const [scriptFiles, setScriptFiles] = useState<ScriptFile[]>([
     { name: 'client.lua', content: '-- client.lua' },
     { name: 'server.lua', content: '-- server.lua' },
     { name: 'web/index.html', content: '<!doctype html><html><body><h1>NUI Preview</h1></body></html>' },
   ]);
   const [selectedFile, setSelectedFile] = useState('client.lua');
-  const [chat, setChat] = useState<ChatMessage[]>([
-    { role: 'agent', text: 'Workspace iniciado. Peça alterações e melhorias no script.', at: new Date().toISOString() },
-    ...(initialPrompt ? [{ role: 'user', text: initialPrompt, at: new Date().toISOString() }] : []),
-  ]);
+  const [chat, setChat] = useState<ChatMessage[]>(initialChat);
   const [prompt, setPrompt] = useState('');
   const [loading, setLoading] = useState(false);
   const [showNuiPreview, setShowNuiPreview] = useState(false);
