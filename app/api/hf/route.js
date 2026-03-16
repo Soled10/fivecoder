@@ -10,7 +10,7 @@ export async function POST(req) {
       return NextResponse.json(
         {
           error:
-            'HF_API_TOKEN não configurado. Crie um token no Hugging Face e adicione no ambiente para habilitar IA real.',
+            'HF_API_TOKEN não configurado. Defina no .env.local para habilitar geração real no Hugging Face.',
         },
         { status: 400 },
       );
@@ -18,17 +18,21 @@ export async function POST(req) {
 
     const { prompt, context } = await req.json();
 
-    if (!prompt || typeof prompt !== 'string') {
+    if (!prompt || typeof prompt !== 'string' || prompt.trim().length < 4) {
       return NextResponse.json({ error: 'Prompt inválido.' }, { status: 400 });
     }
 
-    const system =
-      'Você é um especialista em FiveM, NUI profissional, Lua e frameworks QBCore/ESX/vRP. Gere código limpo, modular e pronto para produção.';
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 55000);
 
-    const composedPrompt = `Contexto da base:\n${context || 'Sem contexto'}\n\nPedido do usuário:\n${prompt}\n\nRetorne em formato:\n1) Resumo técnico\n2) Arquivos sugeridos\n3) Código principal em Lua\n4) Sugestão de NUI (HTML/CSS/JS).`;
+    const system =
+      'Você é um especialista sênior em FiveM, Lua e NUI. Sempre gere código funcional, profissional, comentado e com foco em performance.';
+
+    const composedPrompt = `Contexto da base:\n${context || 'Sem contexto'}\n\nPedido do usuário:\n${prompt}\n\nFormato obrigatório:\n1) Resumo técnico\n2) Estrutura de arquivos\n3) Código Lua principal\n4) NUI (HTML/CSS/JS)`;
 
     const response = await fetch(HF_URL, {
       method: 'POST',
+      signal: controller.signal,
       headers: {
         Authorization: `Bearer ${token}`,
         'Content-Type': 'application/json',
@@ -39,15 +43,17 @@ export async function POST(req) {
           { role: 'system', content: system },
           { role: 'user', content: composedPrompt },
         ],
-        temperature: 0.3,
-        max_tokens: 1600,
+        temperature: 0.2,
+        max_tokens: 1800,
       }),
     });
+
+    clearTimeout(timeout);
 
     if (!response.ok) {
       const errorText = await response.text();
       return NextResponse.json(
-        { error: `Erro do Hugging Face (${response.status}): ${errorText}` },
+        { error: `Erro Hugging Face (${response.status}): ${errorText}` },
         { status: response.status },
       );
     }
@@ -61,6 +67,13 @@ export async function POST(req) {
 
     return NextResponse.json({ answer });
   } catch (error) {
+    if (error?.name === 'AbortError') {
+      return NextResponse.json(
+        { error: 'Timeout na IA. Tente novamente com um prompt menor.' },
+        { status: 504 },
+      );
+    }
+
     return NextResponse.json({ error: `Falha interna: ${error.message}` }, { status: 500 });
   }
 }
